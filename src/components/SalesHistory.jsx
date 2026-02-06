@@ -173,7 +173,14 @@ export default function SalesHistory({ sales, onRefresh, busy }) {
                             <tr key={item.id}>
                               <td style={{ paddingLeft: 20 }}>
                                 {item.item_name}
-                                {!item.inventory_id && <span style={{ fontSize: '0.7em', color: '#fbbf24', marginLeft: 6, border: '1px solid #fbbf24', borderRadius: 4, padding: '1px 3px' }}>MANUAL</span>}
+                                {!item.inventory_id && (
+                                  <>
+                                    {' '}
+                                    <span style={{ fontSize: '0.7em', color: '#fbbf24', marginLeft: 6, border: '1px solid #fbbf24', borderRadius: 4, padding: '1px 3px' }}>
+                                      MANUAL
+                                    </span>
+                                  </>
+                                )}
                               </td>
                               <td className="right">
                                 {item.quantity > 0

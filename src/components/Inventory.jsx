@@ -41,6 +41,12 @@ export default function Inventory({ inventory, onChanged, lowStockThreshold }) {
 
     const total_items = Math.round((number_of_packets * items_per_packet) + loose_items)
 
+    if (cost_per_item <= 0) {
+      if (!confirm("Warning: Cost/Price per item is 0. This item will be sold for FREE (Revenue = 0). Are you sure?")) {
+        return
+      }
+    }
+
     setBusy(true)
     try {
       // We don't need to store loose_items column, just total_items
