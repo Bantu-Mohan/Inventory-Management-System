@@ -273,6 +273,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
           if (error) throw new Error(`Failed to log manual item ${item.item_name}: ${error.message}`)
         } else {
           // Inventory Item: Use RPC
+          // Note: RPC doesn't accept transaction_id yet, so we don't pass it to avoid error.
           const { error } = await supabase.rpc('sell_item', {
             p_inventory_id: item.id,
             p_quantity: Math.trunc(item.quantity)
