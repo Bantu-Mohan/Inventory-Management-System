@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { formatMoney, formatMoney4 } from '../lib/format'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { menu } from '../data/menu'
 
 export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
   const [mode, setMode] = useState('inventory') // 'inventory' | 'manual'
@@ -12,6 +13,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
   // Manual State
   const [customName, setCustomName] = useState('')
   const [customPrice, setCustomPrice] = useState('')
+  const [activeCategory, setActiveCategory] = useState(menu.categories[0].id)
 
   const [cart, setCart] = useState([])
   const [busy, setBusy] = useState(false)
@@ -337,27 +339,67 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
               </div>
             </div>
           ) : (
-            <div className="row">
-              <div>
-                <label>Item Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Samosa, Special Tea"
-                  value={customName}
-                  onChange={e => setCustomName(e.target.value)}
-                  disabled={busy}
-                  autoFocus
-                />
+            <div>
+              {/* Quick Select Menu */}
+              <div style={{ marginBottom: 15, paddingBottom: 10, borderBottom: '1px solid #334155' }}>
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 8 }}>
+                  {menu.categories?.map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setActiveCategory(cat.id)}
+                      style={{
+                        background: activeCategory === cat.id ? '#fbbf24' : 'rgba(255,255,255,0.1)',
+                        color: activeCategory === cat.id ? '#000' : '#fff',
+                        border: 'none', padding: '5px 12px', borderRadius: 20, fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer'
+                      }}
+                    >{cat.name}</button>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
+                  {menu.items?.filter(i => i.category === activeCategory).map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setCustomName(item.name)
+                        setCustomPrice(item.price)
+                        setQuantity(1)
+                      }}
+                      style={{
+                        background: customName === item.name ? 'rgba(251, 191, 36, 0.2)' : 'rgba(255,255,255,0.05)',
+                        border: customName === item.name ? '1px solid #fbbf24' : '1px solid transparent',
+                        borderRadius: 8, padding: 8, cursor: 'pointer', textAlign: 'center', transition: '0.2s'
+                      }}
+                    >
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.2, height: '2.4em' }}>{item.name}</div>
+                      <div style={{ fontSize: '0.9rem', color: '#fbbf24', marginTop: 4, fontWeight: 'bold' }}>₹{item.price}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div style={{ marginTop: 12 }}>
-                <label>Price per Item</label>
-                <input
-                  type="number"
-                  placeholder="0.00"
-                  value={customPrice}
-                  onChange={e => setCustomPrice(e.target.value)}
-                  disabled={busy}
-                />
+
+              <div className="row">
+                <div>
+                  <label>Item Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Samosa, Special Tea"
+                    value={customName}
+                    onChange={e => setCustomName(e.target.value)}
+                    disabled={busy}
+                    autoFocus
+                  />
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <label>Price per Item</label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    value={customPrice}
+                    onChange={e => setCustomPrice(e.target.value)}
+                    disabled={busy}
+                  />
+                </div>
               </div>
             </div>
           )}
