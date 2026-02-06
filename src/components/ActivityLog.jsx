@@ -30,6 +30,7 @@ export default function ActivityLog({ busy }) {
         'CREATE': 'success',
         'ADD_STOCK': 'info',
         'STOCK_REMOVED': 'warning',
+        'MANUAL_SALE': 'warning',
         'UPDATE': 'info',
         'DELETE': 'danger'
     }
