@@ -173,12 +173,23 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
 
     const blob = await fetch(previewPdf).then(r => r.blob())
 
+    // 1. Get Number (State or Prompt)
+    // Ensures user has a chance to enter it if they forgot
+    let rawNumber = customerMobile
+    if (!rawNumber) {
+      const input = prompt("Enter Customer Mobile Number for Direct WhatsApp:\n(Click Cancel to use Device Share Options)")
+      if (input) {
+        setCustomerMobile(input) // Update UI
+        rawNumber = input
+      }
+    }
+
     // Clean number
-    let number = customerMobile.replace(/\D/g, '')
+    let number = rawNumber ? rawNumber.replace(/\D/g, '') : ''
     if (number.length === 10) number = '91' + number
 
-    // 1. DIRECT FLOW: If Number Provided -> Upload & Open WhatsApp
-    // (Bypasses System Share Sheet which fails to show WhatsApp on Desktop)
+    // 2. DIRECT FLOW: If Number Provided -> Upload & Open WhatsApp
+    // (Bypasses System Share Sheet which user dislikes)
     if (number && number.length >= 10) {
       setBusy(true)
       const publicUrl = await uploadReceipt(blob)
@@ -195,7 +206,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
       return
     }
 
-    // 2. FALLBACK FLOW: No Number -> Try System Share Sheet
+    // 3. FALLBACK FLOW: No Number -> Try System Share Sheet
     const file = new File([blob], "receipt_inv_shop.pdf", { type: "application/pdf" })
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
@@ -457,7 +468,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
               </button>
 
               <p style={{ fontSize: '11px', color: '#999', textAlign: 'center', margin: 0 }}>
-                {customerMobile ? '* Instant Link Send' : '* Enter number for direct send'}
+                {customerMobile ? '* Instant Link Send' : '* Enter number above for direct send'}
               </p>
 
               <button
