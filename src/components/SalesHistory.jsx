@@ -31,6 +31,39 @@ export default function SalesHistory({ sales, onRefresh, busy }) {
     )
   }, [sales])
 
+  const stats = useMemo(() => {
+    let total = 0
+    let manualTotal = 0
+    let inventoryTotal = 0
+    let manualCount = 0
+    const manualBreakdown = {}
+
+    sales.forEach(s => {
+      const p = Number(s.total_price) || 0
+      const qty = Number(s.quantity) || 0
+      total += p
+
+      if (!s.inventory_id) {
+        // Manual
+        manualTotal += p
+        manualCount += 1
+        // Normalize name: lowercase and trim
+        const key = (s.item_name || 'Unknown').trim()
+        if (!manualBreakdown[key]) manualBreakdown[key] = { name: s.item_name, qty: 0, revenue: 0 }
+        manualBreakdown[key].qty += qty
+        manualBreakdown[key].revenue += p
+      } else {
+        inventoryTotal += p
+      }
+    })
+
+    const topManual = Object.values(manualBreakdown)
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5)
+
+    return { total, manualTotal, inventoryTotal, manualCount, topManual }
+  }, [sales])
+
   const toggle = (id) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }))
   }
@@ -38,14 +71,51 @@ export default function SalesHistory({ sales, onRefresh, busy }) {
   return (
     <div className="grid">
       <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <h2 style={{ margin: 0 }}>Sales History</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
+          <h2 style={{ margin: 0 }}>Sales Overview</h2>
           <button onClick={onRefresh} disabled={busy}>
             Refresh
           </button>
         </div>
 
-        <div className="tableWrap" style={{ marginTop: 12 }}>
+        {/* Stats Dashboard */}
+        <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 12, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 4 }}>Total Revenue</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fff' }}>{formatMoney(stats.total)}</div>
+          </div>
+
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 12, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 4 }}>Inventory Sales</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#4ade80' }}>{formatMoney(stats.inventoryTotal)}</div>
+          </div>
+
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 12, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 4 }}>Manual Sales</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fbbf24' }}>{formatMoney(stats.manualTotal)}</div>
+            <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>{stats.manualCount} transactions</div>
+          </div>
+        </div>
+
+        {/* Manual Breakdown */}
+        {stats.topManual.length > 0 && (
+          <div style={{ marginBottom: 24, padding: 16, background: 'rgba(251, 191, 36, 0.05)', borderRadius: 12, border: '1px solid rgba(251, 191, 36, 0.1)' }}>
+            <h4 style={{ margin: '0 0 12px 0', color: '#fbbf24', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top Manual Items</h4>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {stats.topManual.map((item, i) => (
+                <div key={i} style={{ background: '#1e293b', padding: '6px 12px', borderRadius: 20, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid #334155' }}>
+                  <span style={{ color: '#fff' }}>{item.name}</span>
+                  <span style={{ color: '#94a3b8', fontSize: '0.8em' }}>x{item.qty}</span>
+                  <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{formatMoney(item.revenue)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* History List */}
+        <h3 style={{ fontSize: '1.1rem', marginBottom: 12 }}>Transaction History</h3>
+        <div className="tableWrap">
           {groups.length === 0 ? (
             <div className="small" style={{ padding: 20, textAlign: 'center' }}>No sales recorded.</div>
           ) : (
@@ -94,7 +164,10 @@ export default function SalesHistory({ sales, onRefresh, busy }) {
                         <tbody>
                           {group.items.map(item => (
                             <tr key={item.id}>
-                              <td style={{ paddingLeft: 20 }}>{item.item_name}</td>
+                              <td style={{ paddingLeft: 20 }}>
+                                {item.item_name}
+                                {!item.inventory_id && <span style={{ fontSize: '0.7em', color: '#fbbf24', marginLeft: 6, border: '1px solid #fbbf24', borderRadius: 4, padding: '1px 3px' }}>MANUAL</span>}
+                              </td>
                               <td className="right">
                                 {item.quantity > 0
                                   ? formatMoney4(item.total_price / item.quantity)
