@@ -13,7 +13,8 @@ import {
     Cell
 } from 'recharts'
 
-const COLORS = ['#4f8cff', '#4dffb5', '#ffd700', '#ff6b6b', '#a855f7']
+// Enterprise Design System Colors for Charts
+const COLORS = ['#5B6DCD', '#4B6A88', '#2E7D32', '#D97706', '#B91C1C']
 
 export default function Analytics({ inventory, sales }) {
 
@@ -134,11 +135,11 @@ export default function Analytics({ inventory, sales }) {
         <div className="analytics-dashboard">
             {/* STATS ROW */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 15, marginBottom: 20 }}>
-                <StatCard label="Total Inventory Value" value={formatMoney(stats.totalStockValue)} color="#4f8cff" />
-                <StatCard label="Total Revenue" value={formatMoney(stats.totalRevenue)} color="#4dffb5" />
-                <StatCard label="Estimated Profit" value={formatMoney(stats.totalProfit)} color="#ffd700" />
-                <StatCard label="Manual Sales" value={formatMoney(stats.manualRevenue)} color="#fbbf24" />
-                <StatCard alert label="Alerts" value={`${stats.outOfStockCount} Out / ${stats.lowStockCount} Low`} color="#ff6b6b" />
+                <StatCard label="Total Inventory Value" value={formatMoney(stats.totalStockValue)} color="var(--accent)" />
+                <StatCard label="Total Revenue" value={formatMoney(stats.totalRevenue)} color="var(--status-success)" />
+                <StatCard label="Estimated Profit" value={formatMoney(stats.totalProfit)} color="var(--secondary)" />
+                <StatCard label="Manual Sales" value={formatMoney(stats.manualRevenue)} color="var(--status-warning)" />
+                <StatCard alert label="Alerts" value={`${stats.outOfStockCount} Out / ${stats.lowStockCount} Low`} color="var(--status-danger)" />
             </div>
 
             <div className="grid two text-white">
@@ -148,14 +149,14 @@ export default function Analytics({ inventory, sales }) {
                     <div style={{ width: '100%', height: 300, marginTop: 20 }}>
                         <ResponsiveContainer>
                             <LineChart data={stats.trendData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                                <XAxis dataKey="date" stroke="#888" />
-                                <YAxis stroke="#888" tickFormatter={val => `$${val}`} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                                <XAxis dataKey="date" stroke="var(--text-secondary)" />
+                                <YAxis stroke="var(--text-secondary)" tickFormatter={val => `$${val}`} />
                                 <Tooltip
-                                    contentStyle={{ background: '#333', border: 'none' }}
+                                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                                     formatter={(value) => formatMoney(value)}
                                 />
-                                <Line type="monotone" dataKey="amount" stroke="#4dffb5" strokeWidth={3} dot={{ r: 4 }} />
+                                <Line type="monotone" dataKey="amount" stroke="var(--accent)" strokeWidth={3} dot={{ r: 4 }} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
@@ -167,15 +168,15 @@ export default function Analytics({ inventory, sales }) {
                     <div style={{ width: '100%', height: 300, marginTop: 20 }}>
                         <ResponsiveContainer>
                             <BarChart data={stats.topByRev} layout="vertical">
-                                <CartesianGrid strokeDasharray="3 3" stroke="#444" horizontal={false} />
-                                <XAxis type="number" stroke="#888" />
-                                <YAxis type="category" dataKey="name" width={100} stroke="#888" />
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                                <XAxis type="number" stroke="var(--text-secondary)" />
+                                <YAxis type="category" dataKey="name" width={100} stroke="var(--text-secondary)" />
                                 <Tooltip
-                                    contentStyle={{ background: '#333', border: 'none' }}
+                                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                                     cursor={{ fill: 'transparent' }}
                                     formatter={(value) => formatMoney(value)}
                                 />
-                                <Bar dataKey="revenue" fill="#4f8cff" radius={[0, 4, 4, 0]}>
+                                <Bar dataKey="revenue" fill="var(--accent)" radius={[0, 4, 4, 0]}>
                                     {stats.topByRev.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
@@ -192,15 +193,15 @@ export default function Analytics({ inventory, sales }) {
                         <div style={{ width: '100%', height: 300, marginTop: 20 }}>
                             <ResponsiveContainer>
                                 <BarChart data={stats.topManualByRev} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#444" horizontal={false} />
-                                    <XAxis type="number" stroke="#888" />
-                                    <YAxis type="category" dataKey="name" width={100} stroke="#888" />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                                    <XAxis type="number" stroke="var(--text-secondary)" />
+                                    <YAxis type="category" dataKey="name" width={100} stroke="var(--text-secondary)" />
                                     <Tooltip
-                                        contentStyle={{ background: '#333', border: 'none' }}
+                                        contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                                         cursor={{ fill: 'transparent' }}
                                         formatter={(value) => formatMoney(value)}
                                     />
-                                    <Bar dataKey="value" fill="#fbbf24" radius={[0, 4, 4, 0]} />
+                                    <Bar dataKey="value" fill="var(--status-warning)" radius={[0, 4, 4, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -213,14 +214,14 @@ export default function Analytics({ inventory, sales }) {
                     <div style={{ width: '100%', height: 300, marginTop: 20 }}>
                         <ResponsiveContainer>
                             <BarChart data={stats.stockValueDistribution}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                                <XAxis dataKey="name" stroke="#888" />
-                                <YAxis stroke="#888" />
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                                <XAxis dataKey="name" stroke="var(--text-secondary)" />
+                                <YAxis stroke="var(--text-secondary)" />
                                 <Tooltip
-                                    contentStyle={{ background: '#333', border: 'none' }}
+                                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                                     formatter={(value) => formatMoney(value)}
                                 />
-                                <Bar dataKey="value" fill="#ffd700" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="value" fill="var(--secondary)" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -256,13 +257,14 @@ export default function Analytics({ inventory, sales }) {
 function StatCard({ label, value, color, alert }) {
     return (
         <div style={{
-            background: alert ? 'rgba(255, 60, 60, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+            background: alert ? 'rgba(185, 28, 28, 0.08)' : 'var(--surface)',
             padding: 20,
             borderRadius: 12,
             borderLeft: `4px solid ${color}`,
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-sm)'
         }}>
-            <div style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: 5 }}>{label}</div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 5 }}>{label}</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: color }}>{value}</div>
         </div>
     )

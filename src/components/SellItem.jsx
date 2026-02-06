@@ -301,7 +301,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
   const grandTotal = cart.reduce((acc, item) => acc + item.total_price, 0)
 
   const modalOverlayStyle = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }
-  const modalContentStyle = { backgroundColor: '#1e293b', padding: 24, borderRadius: 16, width: '100%', height: '90%', maxWidth: 500, display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }
+  const modalContentStyle = { backgroundColor: 'var(--surface)', padding: 24, borderRadius: 16, width: '100%', height: '90%', maxWidth: 500, display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)' }
 
   return (
     <div className="grid two">
@@ -309,16 +309,16 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
           <h2 style={{ margin: 0 }}>Add to Cart</h2>
-          <div className="toggle" style={{ display: 'flex', background: '#334155', borderRadius: 8, padding: 4 }}>
+          <div className="toggle" style={{ display: 'flex', background: 'var(--background)', borderRadius: 8, padding: 4 }}>
             <button
               className={mode === 'inventory' ? 'active' : ''}
               onClick={() => setMode('inventory')}
-              style={{ padding: '6px 12px', background: mode === 'inventory' ? '#64748b' : 'transparent', border: 'none', borderRadius: 6, color: 'white', cursor: 'pointer', fontWeight: mode === 'inventory' ? 'bold' : 'normal' }}
+              style={{ padding: '6px 12px', background: mode === 'inventory' ? 'var(--accent)' : 'transparent', border: 'none', borderRadius: 6, color: mode === 'inventory' ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: mode === 'inventory' ? 'bold' : 'normal' }}
             >Inventory</button>
             <button
               className={mode === 'manual' ? 'active' : ''}
               onClick={() => setMode('manual')}
-              style={{ padding: '6px 12px', background: mode === 'manual' ? '#64748b' : 'transparent', border: 'none', borderRadius: 6, color: 'white', cursor: 'pointer', fontWeight: mode === 'manual' ? 'bold' : 'normal' }}
+              style={{ padding: '6px 12px', background: mode === 'manual' ? 'var(--accent)' : 'transparent', border: 'none', borderRadius: 6, color: mode === 'manual' ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: mode === 'manual' ? 'bold' : 'normal' }}
             >Manual Item</button>
           </div>
         </div>
@@ -341,7 +341,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
           ) : (
             <div>
               {/* Quick Select Menu */}
-              <div style={{ marginBottom: 15, paddingBottom: 10, borderBottom: '1px solid #334155' }}>
+              <div style={{ marginBottom: 15, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 8 }}>
                   {menu.categories?.map(cat => (
                     <button
@@ -349,9 +349,9 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
                       type="button"
                       onClick={() => setActiveCategory(cat.id)}
                       style={{
-                        background: activeCategory === cat.id ? '#fbbf24' : 'rgba(255,255,255,0.1)',
-                        color: activeCategory === cat.id ? '#000' : '#fff',
-                        border: 'none', padding: '5px 12px', borderRadius: 20, fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer'
+                        background: activeCategory === cat.id ? 'var(--accent)' : 'var(--background)',
+                        color: activeCategory === cat.id ? '#fff' : 'var(--text-secondary)',
+                        border: '1px solid var(--border)', padding: '5px 12px', borderRadius: 20, fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer'
                       }}
                     >{cat.name}</button>
                   ))}
@@ -366,13 +366,13 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
                         setQuantity(1)
                       }}
                       style={{
-                        background: customName === item.name ? 'rgba(251, 191, 36, 0.2)' : 'rgba(255,255,255,0.05)',
-                        border: customName === item.name ? '1px solid #fbbf24' : '1px solid transparent',
+                        background: customName === item.name ? 'rgba(91, 109, 205, 0.15)' : 'var(--background)',
+                        border: customName === item.name ? '1px solid var(--accent)' : '1px solid var(--border)',
                         borderRadius: 8, padding: 8, cursor: 'pointer', textAlign: 'center', transition: '0.2s'
                       }}
                     >
                       <div style={{ fontSize: '0.8rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.2, height: '2.4em' }}>{item.name}</div>
-                      <div style={{ fontSize: '0.9rem', color: '#fbbf24', marginTop: 4, fontWeight: 'bold' }}>₹{item.price}</div>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--accent)', marginTop: 4, fontWeight: 'bold' }}>₹{item.price}</div>
                     </div>
                   ))}
                 </div>
@@ -459,7 +459,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
                   <tr key={item.id}>
                     <td>
                       {item.item_name}
-                      {item.is_manual && <span style={{ fontSize: '0.7em', color: '#fbbf24', marginLeft: 6 }}>MANUAL</span>}
+                      {item.is_manual && <span className="pill warning" style={{ marginLeft: 6 }}>MANUAL</span>}
                     </td>
                     <td className="right">{formatMoney4(item.cost_per_item)}</td>
                     <td className="right">{item.quantity}</td>
@@ -491,7 +491,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
           <button
             onClick={handleCheckout}
             className="primary"
-            style={{ width: '100%', marginTop: 15, padding: 15, fontSize: '1.1rem', background: '#4f8cff' }}
+            style={{ width: '100%', marginTop: 15, padding: 15, fontSize: '1.1rem' }}
             disabled={cart.length === 0 || busy}
           >
             {busy ? 'Processing...' : 'Complete Sale'}
@@ -528,7 +528,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
                   placeholder="Enter number (e.g. 9876543210)"
                   value={customerMobile}
                   onChange={e => setCustomerMobile(e.target.value)}
-                  style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid #444', background: '#0f172a', color: '#fff', fontSize: '16px' }}
+                  style={{ flex: 1, padding: 12, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text-primary)', fontSize: '16px' }}
                 />
               </div>
             </div>
@@ -538,14 +538,14 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
                 onClick={handleSmartShare}
                 className="primary"
                 style={{
-                  background: '#25D366',
+                  background: 'var(--status-success)',
                   justifyContent: 'center',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12,
                   padding: '16px 20px',
                   borderRadius: '12px',
-                  boxShadow: '0 8px 16px -4px rgba(37, 211, 102, 0.4)',
+                  boxShadow: 'var(--shadow-md)',
                   border: 'none',
                   transition: 'all 0.2s ease'
                 }}
