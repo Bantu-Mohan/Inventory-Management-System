@@ -61,21 +61,32 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
     setCart(cart.filter(c => c.id !== id))
   }
 
-  // Generate PDF Blob
+  // Generate Mobile-Optimized PDF
   function generatePdfBlob(items, totalAmount, date) {
-    const doc = new jsPDF()
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    })
 
-    // Header
-    doc.setFontSize(22)
-    doc.text('Inventory Shop', 105, 15, { align: 'center' })
+    const pageWidth = doc.internal.pageSize.getWidth()
 
-    doc.setFontSize(12)
-    doc.text('Sales Receipt', 105, 22, { align: 'center' })
+    // Header (Large & Clean)
+    doc.setFontSize(24)
+    doc.setFont('helvetica', 'bold')
+    doc.text('INVOICE', pageWidth / 2, 20, { align: 'center' })
+
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Inventory Shop', pageWidth / 2, 28, { align: 'center' })
 
     doc.setFontSize(10)
-    doc.text(`Date: ${date.toLocaleString()}`, 14, 30)
+    doc.setTextColor(100)
+    doc.text(`Date: ${date.toLocaleString()}`, pageWidth / 2, 34, { align: 'center' })
+    doc.text(`Invoice #: ${Date.now().toString().slice(-6)}`, pageWidth / 2, 39, { align: 'center' })
+    doc.setTextColor(0)
 
-    // Table
+    // Mobile-Friendly Table
     const tableColumn = ["Item", "Qty", "Price", "Total"]
     const tableRows = items.map(item => [
       item.item_name,
@@ -87,19 +98,47 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 35,
-      theme: 'grid',
-      headStyles: { fillColor: [66, 66, 66] },
-      styles: { fontSize: 10, cellPadding: 3 },
+      startY: 45,
+      theme: 'plain', // Minimal B&W
+      styles: {
+        fontSize: 12, // Larger font for mobile
+        cellPadding: 4,
+        textColor: [0, 0, 0],
+        valign: 'middle'
+      },
+      headStyles: {
+        fillColor: [240, 240, 240], // Light gray header
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        lineWidth: 0.1,
+        lineColor: [200, 200, 200]
+      },
+      columnStyles: {
+        0: { cellWidth: 'auto' }, // Item name expands
+        1: { cellWidth: 15, halign: 'center' },
+        2: { cellWidth: 25, halign: 'right' },
+        3: { cellWidth: 25, halign: 'right' }
+      },
+      // Draw lines between rows for clarity
+      didParseCell: function (data) {
+        data.cell.styles.lineWidth = { bottom: 0.1 };
+        data.cell.styles.lineColor = [220, 220, 220];
+      }
     })
 
-    // Total
-    const finalY = doc.lastAutoTable.finalY || 40
-    doc.setFontSize(14)
-    doc.text(`Grand Total: ${formatMoney(totalAmount)}`, 14, finalY + 10)
+    // Grand Total (Big & Bold)
+    const finalY = doc.lastAutoTable.finalY + 10
 
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Total Amount:', 14, finalY)
+    doc.text(formatMoney(totalAmount), pageWidth - 14, finalY, { align: 'right' })
+
+    // Footer
     doc.setFontSize(10)
-    doc.text('Thank you for your business!', 105, finalY + 20, { align: 'center' })
+    doc.setFont('helvetica', 'italic')
+    doc.setTextColor(100)
+    doc.text('Thank you for your business!', pageWidth / 2, finalY + 15, { align: 'center' })
 
     return doc.output('blob')
   }
@@ -128,14 +167,36 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
     }
   }
 
-  // Smart Share Logic (now with Link Support)
+  // Smart Share Logic (DIRECT WhatsApp Flow)
   async function handleSmartShare() {
     if (!previewPdf) return
 
     const blob = await fetch(previewPdf).then(r => r.blob())
-    const file = new File([blob], "receipt_inv_shop.pdf", { type: "application/pdf" })
 
-    // 1. Try Native Share First (Mobile App - Best Experience)
+    // Clean number
+    let number = customerMobile.replace(/\D/g, '')
+    if (number.length === 10) number = '91' + number
+
+    // 1. DIRECT FLOW: If Number Provided -> Upload & Open WhatsApp
+    // (Bypasses System Share Sheet which fails to show WhatsApp on Desktop)
+    if (number && number.length >= 10) {
+      setBusy(true)
+      const publicUrl = await uploadReceipt(blob)
+      setBusy(false)
+
+      if (publicUrl) {
+        const text = encodeURIComponent(`Hello! Here is your receipt from Inventory Shop: ${publicUrl}`)
+        const url = `https://wa.me/${number}?text=${text}`
+        window.open(url, '_blank')
+      } else {
+        alert('⚠️ Cloud Upload Failed (Storage not configured?). Downloading PDF instead.')
+        handleWhatsAppManual()
+      }
+      return
+    }
+
+    // 2. FALLBACK FLOW: No Number -> Try System Share Sheet
+    const file = new File([blob], "receipt_inv_shop.pdf", { type: "application/pdf" })
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
@@ -143,39 +204,11 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
           title: 'Receipt',
           text: 'Here is your receipt from Inventory Shop.'
         })
-        return
       } catch (e) {
-        console.warn('Native share cancelled/failed', e)
-      }
-    }
-
-    // 2. Fallback: Upload & Send Link (Works on Desktop & Mobile Web)
-    // Check if we have a number to make it "Direct"
-    let number = customerMobile.replace(/\D/g, '')
-    if (number.length === 10) number = '91' + number
-
-    const proceed = confirm(`Native sharing unavailable.\n\nDo you want to upload the receipt and send a LINK via WhatsApp?\n\n(This sends directly without manual attachment)`)
-
-    if (proceed) {
-      setBusy(true) // Reuse busy state or local
-      const publicUrl = await uploadReceipt(blob)
-      setBusy(false)
-
-      if (publicUrl) {
-        // Success: Send Link
-        const text = encodeURIComponent(`Hello! Here is your receipt from Inventory Shop: ${publicUrl}`)
-        const url = number.length > 5
-          ? `https://wa.me/${number}?text=${text}`
-          : `https://wa.me/?text=${text}`
-
-        window.open(url, '_blank')
-      } else {
-        // Fail: Fallback to Manual logic
-        alert('⚠️ Cloud Upload Failed (Bucket might be missing). Switch to manual mode.')
-        handleWhatsAppManual()
+        // User cancelled, ignore
       }
     } else {
-      handleWhatsAppManual()
+      alert('Please enter a mobile number to share via WhatsApp directly.')
     }
   }
 
@@ -400,30 +433,45 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
             </div>
 
             <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
-              {/* Primary Action Button */}
+              {/* Primary Action Button (AntiGravity Style) */}
               <button
                 onClick={handleSmartShare}
                 className="primary"
-                style={{ background: '#25D366', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8, padding: 16 }}
+                style={{
+                  background: '#25D366',
+                  justifyContent: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '16px 20px',
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 16px -4px rgba(37, 211, 102, 0.4)',
+                  border: 'none',
+                  transition: 'all 0.2s ease'
+                }}
               >
-                <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>📱</span>
-                <span style={{ fontWeight: 'bold' }}>
-                  {customerMobile ? 'Send via WhatsApp' : 'Share Receipt'}
+                <span style={{ fontSize: '1.4rem' }}>📱</span>
+                <span style={{ fontWeight: '600', fontSize: '1.1rem' }}>
+                  {customerMobile ? 'Send PDF via WhatsApp (Direct)' : 'Send PDF Bill via WhatsApp'}
                 </span>
               </button>
 
               <p style={{ fontSize: '11px', color: '#999', textAlign: 'center', margin: 0 }}>
-                * On Mobile: File attaches automatically.<br />
-                * On Desktop: File downloads, attach manually.
+                {customerMobile ? '* Instant Link Send' : '* Enter number for direct send'}
               </p>
 
-              <a
-                href={previewPdf}
-                download={`receipt_${new Date().toISOString().slice(0, 10)}.pdf`}
-                style={{ textDecoration: 'none' }}
+              <button
+                onClick={() => {
+                  const a = document.createElement('a')
+                  a.href = previewPdf
+                  a.download = `invoice_${Date.now()}.pdf`
+                  a.click()
+                }}
+                className="small"
+                style={{ width: '100%', background: 'rgba(255,255,255,0.05)', height: 40 }}
               >
-                <button style={{ width: '100%', background: 'rgba(255,255,255,0.1)' }}>Download PDF Only</button>
-              </a>
+                Download Only
+              </button>
             </div>
           </div>
         </div>
