@@ -5,11 +5,17 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
+  const [mode, setMode] = useState('inventory') // 'inventory' | 'manual'
   const [inventoryId, setInventoryId] = useState('')
   const [quantity, setQuantity] = useState('')
-  const [cart, setCart] = useState([]) // [{ id, item_name, quantity, cost_per_item, total_price }]
+
+  // Manual State
+  const [customName, setCustomName] = useState('')
+  const [customPrice, setCustomPrice] = useState('')
+
+  const [cart, setCart] = useState([])
   const [busy, setBusy] = useState(false)
-  const [previewPdf, setPreviewPdf] = useState(null) // Blob URL for preview
+  const [previewPdf, setPreviewPdf] = useState(null)
   const [customerMobile, setCustomerMobile] = useState('')
 
   // Current selection logic
@@ -17,43 +23,82 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
 
   const computed = useMemo(() => {
     const q = Number(quantity)
-    const cpi = selected ? Number(selected.cost_per_item) : NaN
+    let cpi = NaN
+
+    if (mode === 'inventory') {
+      cpi = selected ? Number(selected.cost_per_item) : NaN
+    } else {
+      cpi = Number(customPrice)
+    }
+
     const total = Number.isFinite(q) && Number.isFinite(cpi) ? q * cpi : NaN
     return { quantity: q, costPerItem: cpi, totalPrice: total }
-  }, [quantity, selected])
+  }, [quantity, selected, customPrice, mode])
 
   // Add to Cart Logic
   function addToCart(e) {
     e.preventDefault()
-    if (!selected) return alert('Select an item')
     const q = Number(quantity)
     if (q <= 0) return alert('Quantity must be > 0')
 
-    const inCart = cart.find(c => c.id === selected.id)
-    const currentCartQty = inCart ? inCart.quantity : 0
+    let newItem = {}
 
-    if (q + currentCartQty > selected.total_items) {
-      return alert(`Insufficient stock! You have ${selected.total_items}, cart has ${currentCartQty}, trying to add ${q}.`)
-    }
+    if (mode === 'inventory') {
+      if (!selected) return alert('Select an item')
 
-    if (inCart) {
-      setCart(cart.map(c => c.id === selected.id ? {
-        ...c,
-        quantity: c.quantity + q,
-        total_price: (c.quantity + q) * c.cost_per_item
-      } : c))
-    } else {
-      setCart([...cart, {
+      // Check Stock
+      const inCart = cart.find(c => c.id === selected.id && !c.is_manual)
+      const currentCartQty = inCart ? inCart.quantity : 0
+
+      if (q + currentCartQty > selected.total_items) {
+        return alert(`Insufficient stock! Combine: ${q + currentCartQty} > Stock: ${selected.total_items}`)
+      }
+
+      newItem = {
         id: selected.id,
         item_name: selected.item_name,
         quantity: q,
         cost_per_item: computed.costPerItem,
-        total_price: computed.totalPrice
-      }])
+        total_price: computed.totalPrice,
+        is_manual: false
+      }
+    } else {
+      // Manual Mode
+      if (!customName.trim()) return alert('Enter Item Name')
+      if (!customPrice || Number(customPrice) < 0) return alert('Enter Valid Price')
+
+      newItem = {
+        id: `manual-${Date.now()}`,
+        item_name: customName,
+        quantity: q,
+        cost_per_item: computed.costPerItem,
+        total_price: computed.totalPrice,
+        is_manual: true
+      }
     }
 
+    // Merge logic
+    const existingIndex = cart.findIndex(c => c.id === newItem.id)
+    if (existingIndex >= 0 && !newItem.is_manual) {
+      const updatedCart = [...cart]
+      const exist = updatedCart[existingIndex]
+      updatedCart[existingIndex] = {
+        ...exist,
+        quantity: exist.quantity + newItem.quantity,
+        total_price: (exist.quantity + newItem.quantity) * exist.cost_per_item
+      }
+      setCart(updatedCart)
+    } else {
+      setCart([...cart, newItem])
+    }
+
+    // Reset Fields
     setQuantity('')
-    setInventoryId('')
+    if (mode === 'inventory') setInventoryId('')
+    else {
+      setCustomName('')
+      setCustomPrice('')
+    }
   }
 
   // Remove from Cart
@@ -63,15 +108,9 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
 
   // Generate Mobile-Optimized PDF
   function generatePdfBlob(items, totalAmount, date) {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    })
-
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const pageWidth = doc.internal.pageSize.getWidth()
 
-    // Header (Large & Clean)
     doc.setFontSize(24)
     doc.setFont('helvetica', 'bold')
     doc.text('INVOICE', pageWidth / 2, 20, { align: 'center' })
@@ -86,10 +125,9 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
     doc.text(`Invoice #: ${Date.now().toString().slice(-6)}`, pageWidth / 2, 39, { align: 'center' })
     doc.setTextColor(0)
 
-    // Mobile-Friendly Table
     const tableColumn = ["Item", "Qty", "Price", "Total"]
     const tableRows = items.map(item => [
-      item.item_name,
+      item.item_name + (item.is_manual ? '*' : ''),
       item.quantity.toString(),
       formatMoney(item.cost_per_item),
       formatMoney(item.total_price)
@@ -99,42 +137,27 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
       head: [tableColumn],
       body: tableRows,
       startY: 45,
-      theme: 'plain', // Minimal B&W
-      styles: {
-        fontSize: 12, // Larger font for mobile
-        cellPadding: 4,
-        textColor: [0, 0, 0],
-        valign: 'middle'
-      },
-      headStyles: {
-        fillColor: [240, 240, 240], // Light gray header
-        textColor: [0, 0, 0],
-        fontStyle: 'bold',
-        lineWidth: 0.1,
-        lineColor: [200, 200, 200]
-      },
+      theme: 'plain',
+      styles: { fontSize: 12, cellPadding: 4, textColor: [0, 0, 0], valign: 'middle' },
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [200, 200, 200] },
       columnStyles: {
-        0: { cellWidth: 'auto' }, // Item name expands
+        0: { cellWidth: 'auto' },
         1: { cellWidth: 15, halign: 'center' },
         2: { cellWidth: 25, halign: 'right' },
         3: { cellWidth: 25, halign: 'right' }
       },
-      // Draw lines between rows for clarity
       didParseCell: function (data) {
         data.cell.styles.lineWidth = { bottom: 0.1 };
         data.cell.styles.lineColor = [220, 220, 220];
       }
     })
 
-    // Grand Total (Big & Bold)
     const finalY = doc.lastAutoTable.finalY + 10
-
     doc.setFontSize(16)
     doc.setFont('helvetica', 'bold')
     doc.text('Total Amount:', 14, finalY)
     doc.text(formatMoney(totalAmount), pageWidth - 14, finalY, { align: 'right' })
 
-    // Footer
     doc.setFontSize(10)
     doc.setFont('helvetica', 'italic')
     doc.setTextColor(100)
@@ -147,19 +170,9 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
   async function uploadReceipt(blob) {
     try {
       const fileName = `receipt_${Date.now()}.pdf`
-      const { data, error } = await supabase.storage
-        .from('receipts')
-        .upload(fileName, blob, {
-          cacheControl: '3600',
-          upsert: false
-        })
-
+      const { data, error } = await supabase.storage.from('receipts').upload(fileName, blob, { cacheControl: '3600', upsert: false })
       if (error) throw error
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('receipts')
-        .getPublicUrl(fileName)
-
+      const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(fileName)
       return publicUrl
     } catch (err) {
       console.error('Upload failed:', err)
@@ -167,28 +180,22 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
     }
   }
 
-  // Smart Share Logic (DIRECT WhatsApp Flow)
+  // Smart Share Logic
   async function handleSmartShare() {
     if (!previewPdf) return
-
     const blob = await fetch(previewPdf).then(r => r.blob())
 
-    // 1. Get Number (State or Prompt)
-    // Ensures user has a chance to enter it if they forgot
     let rawNumber = customerMobile
     if (!rawNumber) {
       const input = prompt("Enter Customer Mobile Number for Direct WhatsApp:\n(Click Cancel to use Device Share Options)")
       if (input) {
-        setCustomerMobile(input) // Update UI
+        setCustomerMobile(input)
         rawNumber = input
       }
     }
 
-    // Clean number
     let number = rawNumber ? rawNumber.replace(/\D/g, '') : ''
 
-    // VALIDATION: If user typed something but it's too short, STOP.
-    // Don't fall back to System Share, because they clearly TRIED to do Direct.
     if (rawNumber && number.length < 10) {
       alert("Please enter a valid 10-digit mobile number to send via WhatsApp.")
       return
@@ -196,8 +203,6 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
 
     if (number.length === 10) number = '91' + number
 
-    // 2. DIRECT FLOW: If Number Provided -> Upload & Open WhatsApp
-    // (Bypasses System Share Sheet which user dislikes)
     if (number && number.length >= 10) {
       setBusy(true)
       const publicUrl = await uploadReceipt(blob)
@@ -208,50 +213,34 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
         const url = `https://wa.me/${number}?text=${text}`
         window.open(url, '_blank')
       } else {
-        alert('⚠️ Cloud Upload Failed (Storage not configured?). Downloading PDF instead.')
+        alert('⚠️ Cloud Upload Failed. Downloading PDF instead.')
         handleWhatsAppManual()
       }
       return
     }
 
-    // 3. FALLBACK FLOW: No Number -> Try System Share Sheet
     const file = new File([blob], "receipt_inv_shop.pdf", { type: "application/pdf" })
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: 'Receipt',
-          text: 'Here is your receipt from Inventory Shop.'
-        })
-      } catch (e) {
-        // User cancelled, ignore
-      }
+      try { await navigator.share({ files: [file], title: 'Receipt', text: 'Here is your receipt from Inventory Shop.' }) } catch (e) { }
     } else {
       alert('Please enter a mobile number to share via WhatsApp directly.')
     }
   }
 
-  // Manual Fallback (Old Logic)
   async function handleWhatsAppManual() {
     if (!previewPdf) return
-
     let number = customerMobile.replace(/\D/g, '')
     if (number.length === 10) number = '91' + number
-
     const a = document.createElement('a')
     a.href = previewPdf
     a.download = `receipt_${new Date().toISOString().slice(0, 10)}.pdf`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-
     const text = encodeURIComponent('Hello! Here is your bill. (Attached manually)')
-    const url = number.length > 5
-      ? `https://wa.me/${number}?text=${text}`
-      : `https://wa.me/?text=${text}`
-
+    const url = number.length > 5 ? `https://wa.me/${number}?text=${text}` : `https://wa.me/?text=${text}`
     setTimeout(() => {
-      alert('⚠️ PDF Downloaded!\n\nWhatsApp Web cannot attach files automatically.\n\nPlease drag/attach the downloaded receipt into the chat manually.')
+      alert('⚠️ PDF Downloaded!\n\nPlease attach it manually.')
       window.open(url, '_blank')
     }, 800)
   }
@@ -265,25 +254,42 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
 
     setBusy(true)
     try {
+      const transactionId = crypto.randomUUID()
+
       // Process Sale
       for (const item of cart) {
-        const { error } = await supabase.rpc('sell_item', {
-          p_inventory_id: item.id,
-          p_quantity: Math.trunc(item.quantity)
-        })
-        if (error) throw new Error(`Failed to sell ${item.item_name}: ${error.message}`)
+        if (item.is_manual) {
+          // Manual Item: Insert Direct (No RPC)
+          // Ensure 'inventory_id' is nullable in DB!
+          const { error } = await supabase.from('sales').insert({
+            item_name: item.item_name,
+            quantity: item.quantity,
+            cost_per_item: item.cost_per_item,
+            total_price: item.total_price,
+            sold_at: new Date(),
+            transaction_id: transactionId,
+            inventory_id: null
+          })
+          if (error) throw new Error(`Failed to log manual item ${item.item_name}: ${error.message}`)
+        } else {
+          // Inventory Item: Use RPC
+          const { error } = await supabase.rpc('sell_item', {
+            p_inventory_id: item.id,
+            p_quantity: Math.trunc(item.quantity)
+          })
+          if (error) throw new Error(`Failed to sell ${item.item_name}: ${error.message}`)
+        }
       }
 
       // Generate Receipt Blob
       const blob = generatePdfBlob(cart, totalAmount, new Date())
       const url = URL.createObjectURL(blob)
       setPreviewPdf(url)
-
       setCart([])
       await onChanged()
-      // Don't auto download, show modal
     } catch (err) {
-      alert(err.message)
+      console.error(err)
+      alert(`Error: ${err.message}\n\n(Tip: Ensure database allows NULL inventory_id for manual sales)`)
       await onChanged()
     } finally {
       setBusy(false)
@@ -292,40 +298,71 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
 
   const grandTotal = cart.reduce((acc, item) => acc + item.total_price, 0)
 
-  // Modal Style
-  const modalOverlayStyle = {
-    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 1000,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: 20
-  }
-  const modalContentStyle = {
-    backgroundColor: '#1e293b', padding: 24, borderRadius: 16,
-    width: '100%', height: '90%', maxWidth: 500, display: 'flex', flexDirection: 'column',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-  }
+  const modalOverlayStyle = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }
+  const modalContentStyle = { backgroundColor: '#1e293b', padding: 24, borderRadius: 16, width: '100%', height: '90%', maxWidth: 500, display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }
 
   return (
     <div className="grid two">
       {/* LEFT: Add to Cart Form */}
       <div className="card">
-        <h2>Add to Cart</h2>
-        <form onSubmit={addToCart}>
-          <div className="row">
-            <div>
-              <label>Select Item</label>
-              <select value={inventoryId} onChange={(e) => setInventoryId(e.target.value)} disabled={busy}>
-                <option value="">-- Select --</option>
-                {inventory.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.item_name} (Stock: {i.total_items})
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+          <h2 style={{ margin: 0 }}>Add to Cart</h2>
+          <div className="toggle" style={{ display: 'flex', background: '#334155', borderRadius: 8, padding: 4 }}>
+            <button
+              className={mode === 'inventory' ? 'active' : ''}
+              onClick={() => setMode('inventory')}
+              style={{ padding: '6px 12px', background: mode === 'inventory' ? '#64748b' : 'transparent', border: 'none', borderRadius: 6, color: 'white', cursor: 'pointer', fontWeight: mode === 'inventory' ? 'bold' : 'normal' }}
+            >Inventory</button>
+            <button
+              className={mode === 'manual' ? 'active' : ''}
+              onClick={() => setMode('manual')}
+              style={{ padding: '6px 12px', background: mode === 'manual' ? '#64748b' : 'transparent', border: 'none', borderRadius: 6, color: 'white', cursor: 'pointer', fontWeight: mode === 'manual' ? 'bold' : 'normal' }}
+            >Manual Item</button>
           </div>
+        </div>
 
-          <div className="row cols2">
+        <form onSubmit={addToCart}>
+          {mode === 'inventory' ? (
+            <div className="row">
+              <div>
+                <label>Select Item</label>
+                <select value={inventoryId} onChange={(e) => setInventoryId(e.target.value)} disabled={busy}>
+                  <option value="">-- Select --</option>
+                  {inventory.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.item_name} (Stock: {i.total_items})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="row">
+              <div>
+                <label>Item Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Samosa, Special Tea"
+                  value={customName}
+                  onChange={e => setCustomName(e.target.value)}
+                  disabled={busy}
+                  autoFocus
+                />
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <label>Price per Item</label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  value={customPrice}
+                  onChange={e => setCustomPrice(e.target.value)}
+                  disabled={busy}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="row cols2" style={{ marginTop: 12 }}>
             <div>
               <label>Quantity</label>
               <input
@@ -337,20 +374,20 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
               />
             </div>
             <div>
-              <label>Price</label>
+              <label>Total</label>
               <input value={formatMoney(computed.totalPrice)} disabled readOnly />
             </div>
           </div>
 
-          {selected && (
+          {mode === 'inventory' && selected && (
             <div style={{ marginTop: 10, marginBottom: 15 }} className="small">
               Avail: {selected.total_items} | Cost: {formatMoney4(selected.cost_per_item)}
             </div>
           )}
 
-          <div className="actions">
-            <button className="primary" disabled={busy || !selected || !quantity}>
-              Add to Bill
+          <div className="actions" style={{ marginTop: 20 }}>
+            <button className="primary" disabled={busy || (mode === 'inventory' && !selected) || !quantity}>
+              {mode === 'inventory' ? 'Add Inventory Item' : 'Add Manual Item'}
             </button>
           </div>
         </form>
@@ -378,7 +415,10 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
               <tbody>
                 {cart.map(item => (
                   <tr key={item.id}>
-                    <td>{item.item_name}</td>
+                    <td>
+                      {item.item_name}
+                      {item.is_manual && <span style={{ fontSize: '0.7em', color: '#fbbf24', marginLeft: 6 }}>MANUAL</span>}
+                    </td>
                     <td className="right">{formatMoney4(item.cost_per_item)}</td>
                     <td className="right">{item.quantity}</td>
                     <td className="right">{formatMoney(item.total_price)}</td>
@@ -452,7 +492,6 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
             </div>
 
             <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
-              {/* Primary Action Button (AntiGravity Style) */}
               <button
                 onClick={handleSmartShare}
                 className="primary"
