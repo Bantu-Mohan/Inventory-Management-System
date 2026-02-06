@@ -1,5 +1,8 @@
 -- Update sell_item RPC to support tracking Inventory ID and Transaction ID
--- This ensures Inventory Sales are correctly distinguished from Manual Sales.
+-- First DROP existing functions to avoid signature conflicts ("cannot change return type" error)
+
+DROP FUNCTION IF EXISTS public.sell_item(uuid, integer);
+DROP FUNCTION IF EXISTS public.sell_item(uuid, integer, uuid);
 
 CREATE OR REPLACE FUNCTION sell_item(
   p_inventory_id uuid,
