@@ -289,7 +289,7 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
       await onChanged()
     } catch (err) {
       console.error(err)
-      alert(`Error: ${err.message}\n\n(Tip: Ensure database allows NULL inventory_id for manual sales)`)
+      alert(`Error: ${err.message}\n\n(Tip: You MUST run the SQL script 'supabase/fix_database.sql' in your Supabase Dashboard to enable Manual Sales.)`)
       await onChanged()
     } finally {
       setBusy(false)
