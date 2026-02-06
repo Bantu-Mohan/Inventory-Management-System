@@ -59,7 +59,7 @@ export default function SalesHistory({ sales, onRefresh, busy }) {
 
     const topManual = Object.values(manualBreakdown)
       .sort((a, b) => b.qty - a.qty)
-      .slice(0, 5)
+      .slice(0, 20)
 
     return { total, manualTotal, inventoryTotal, manualCount, topManual }
   }, [sales])

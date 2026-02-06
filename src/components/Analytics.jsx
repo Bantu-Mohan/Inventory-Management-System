@@ -106,7 +106,7 @@ export default function Analytics({ inventory, sales }) {
         const topManualByRev = Object.keys(manualPerformance)
             .map(k => ({ name: k, value: manualPerformance[k] }))
             .sort((a, b) => b.value - a.value)
-            .slice(0, 5)
+            .slice(0, 10)
 
         return {
             totalStockValue,
