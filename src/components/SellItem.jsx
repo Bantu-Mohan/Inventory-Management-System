@@ -260,15 +260,15 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
       for (const item of cart) {
         if (item.is_manual) {
           // Manual Item: Insert Direct (No RPC)
-          // Ensure 'inventory_id' is nullable in DB!
+          // Note: We omit inventory_id so it defaults to NULL.
+          // This prevents errors if the column is temporarily missing in schema cache.
           const { error } = await supabase.from('sales').insert({
             item_name: item.item_name,
             quantity: item.quantity,
             cost_per_item: item.cost_per_item,
             total_price: item.total_price,
             sold_at: new Date(),
-            transaction_id: transactionId,
-            inventory_id: null
+            transaction_id: transactionId
           })
           if (error) throw new Error(`Failed to log manual item ${item.item_name}: ${error.message}`)
         } else {
