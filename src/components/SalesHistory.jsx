@@ -14,7 +14,7 @@ export default function SalesHistory({ sales, onRefresh, busy }) {
         map.set(txId, {
           id: txId,
           isLegacy: !s.transaction_id,
-          date: s.sold_at,
+          date: s.sold_at || s.created_at || new Date().toISOString(),
           total: 0,
           items: []
         })
