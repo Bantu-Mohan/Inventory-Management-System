@@ -276,7 +276,8 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
           const { error } = await supabase.rpc('sell_item', {
             p_inventory_id: item.id,
             p_quantity: Math.trunc(item.quantity),
-            p_transaction_id: transactionId
+            p_transaction_id: transactionId,
+            p_unit_price: item.cost_per_item
           })
           if (error) throw new Error(`Failed to sell ${item.item_name}: ${error.message}`)
         }
