@@ -104,18 +104,88 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
     return doc.output('blob')
   }
 
-  // Direct WhatsApp Redirect (Fallback)
-  async function handleWhatsApp() {
+  // Upload to Supabase Storage
+  async function uploadReceipt(blob) {
+    try {
+      const fileName = `receipt_${Date.now()}.pdf`
+      const { data, error } = await supabase.storage
+        .from('receipts')
+        .upload(fileName, blob, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (error) throw error
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('receipts')
+        .getPublicUrl(fileName)
+
+      return publicUrl
+    } catch (err) {
+      console.error('Upload failed:', err)
+      return null
+    }
+  }
+
+  // Smart Share Logic (now with Link Support)
+  async function handleSmartShare() {
     if (!previewPdf) return
 
-    // Clean number
-    let number = customerMobile.replace(/\D/g, '')
-    if (number.length === 10) {
-      // Assume India defaults if 10 digits provided without code
-      number = '91' + number
+    const blob = await fetch(previewPdf).then(r => r.blob())
+    const file = new File([blob], "receipt_inv_shop.pdf", { type: "application/pdf" })
+
+    // 1. Try Native Share First (Mobile App - Best Experience)
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'Receipt',
+          text: 'Here is your receipt from Inventory Shop.'
+        })
+        return
+      } catch (e) {
+        console.warn('Native share cancelled/failed', e)
+      }
     }
 
-    // 1. Trigger Download (so user has the file to attach)
+    // 2. Fallback: Upload & Send Link (Works on Desktop & Mobile Web)
+    // Check if we have a number to make it "Direct"
+    let number = customerMobile.replace(/\D/g, '')
+    if (number.length === 10) number = '91' + number
+
+    const proceed = confirm(`Native sharing unavailable.\n\nDo you want to upload the receipt and send a LINK via WhatsApp?\n\n(This sends directly without manual attachment)`)
+
+    if (proceed) {
+      setBusy(true) // Reuse busy state or local
+      const publicUrl = await uploadReceipt(blob)
+      setBusy(false)
+
+      if (publicUrl) {
+        // Success: Send Link
+        const text = encodeURIComponent(`Hello! Here is your receipt from Inventory Shop: ${publicUrl}`)
+        const url = number.length > 5
+          ? `https://wa.me/${number}?text=${text}`
+          : `https://wa.me/?text=${text}`
+
+        window.open(url, '_blank')
+      } else {
+        // Fail: Fallback to Manual logic
+        alert('⚠️ Cloud Upload Failed (Bucket might be missing). Switch to manual mode.')
+        handleWhatsAppManual()
+      }
+    } else {
+      handleWhatsAppManual()
+    }
+  }
+
+  // Manual Fallback (Old Logic)
+  async function handleWhatsAppManual() {
+    if (!previewPdf) return
+
+    let number = customerMobile.replace(/\D/g, '')
+    if (number.length === 10) number = '91' + number
+
     const a = document.createElement('a')
     a.href = previewPdf
     a.download = `receipt_${new Date().toISOString().slice(0, 10)}.pdf`
@@ -123,48 +193,15 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
     a.click()
     document.body.removeChild(a)
 
-    // 2. Open WhatsApp Logic
-    const text = encodeURIComponent('Hello! Here is your bill from Inventory Shop. (Please find the PDF attached above)')
+    const text = encodeURIComponent('Hello! Here is your bill. (Attached manually)')
+    const url = number.length > 5
+      ? `https://wa.me/${number}?text=${text}`
+      : `https://wa.me/?text=${text}`
 
-    let url = ''
-    if (number.length > 5) {
-      // Direct chat
-      url = `https://wa.me/${number}?text=${text}`
-    } else {
-      // General share (Web/Mobile picker)
-      url = `https://wa.me/?text=${text}`
-    }
-
-    // Small delay to ensure download starts before tab switch
     setTimeout(() => {
+      alert('⚠️ PDF Downloaded!\n\nWhatsApp Web cannot attach files automatically.\n\nPlease drag/attach the downloaded receipt into the chat manually.')
       window.open(url, '_blank')
     }, 800)
-  }
-
-  // Smart Share Logic
-  async function handleSmartShare() {
-    if (!previewPdf) return
-
-    // Try Native Share First (Mobile - Attaches File)
-    if (navigator.share && navigator.canShare) {
-      try {
-        const blob = await fetch(previewPdf).then(r => r.blob())
-        const file = new File([blob], "receipt_inv_shop.pdf", { type: "application/pdf" })
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'Receipt',
-            text: 'Here is your receipt from Inventory Shop.'
-          })
-          return // Success, native share handles it
-        }
-      } catch (e) {
-        console.warn('Native share failed/cancelled, falling back to Link', e)
-      }
-    }
-
-    // Fallback: WhatsApp Link (Desktop/Incompatible - Text Only + Download)
-    handleWhatsApp()
   }
 
   // Checkout
