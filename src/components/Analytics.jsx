@@ -92,6 +92,22 @@ export default function Analytics({ inventory, sales }) {
             .sort((a, b) => b.value - a.value)
             .slice(0, 10)
 
+        // Manual Sales Analysis
+        let manualRevenue = 0
+        const manualPerformance = {}
+        sales.forEach(s => {
+            if (!s.inventory_id) {
+                const amount = Number(s.total_price) || 0
+                manualRevenue += amount
+                if (!manualPerformance[s.item_name]) manualPerformance[s.item_name] = 0
+                manualPerformance[s.item_name] += amount
+            }
+        })
+        const topManualByRev = Object.keys(manualPerformance)
+            .map(k => ({ name: k, value: manualPerformance[k] }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5)
+
         return {
             totalStockValue,
             lowStockCount,
@@ -102,7 +118,9 @@ export default function Analytics({ inventory, sales }) {
             topByQty,
             topByRev,
             trendData,
-            stockValueDistribution
+            stockValueDistribution,
+            manualRevenue,
+            topManualByRev
         }
     }, [inventory, sales])
 
@@ -110,10 +128,10 @@ export default function Analytics({ inventory, sales }) {
         <div className="analytics-dashboard">
             {/* STATS ROW */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 15, marginBottom: 20 }}>
-                {/* ... (Existing Stat Boxes, made cleaner) ... */}
                 <StatCard label="Total Inventory Value" value={formatMoney(stats.totalStockValue)} color="#4f8cff" />
                 <StatCard label="Total Revenue" value={formatMoney(stats.totalRevenue)} color="#4dffb5" />
                 <StatCard label="Estimated Profit" value={formatMoney(stats.totalProfit)} color="#ffd700" />
+                <StatCard label="Manual Sales" value={formatMoney(stats.manualRevenue)} color="#fbbf24" />
                 <StatCard alert label="Alerts" value={`${stats.outOfStockCount} Out / ${stats.lowStockCount} Low`} color="#ff6b6b" />
             </div>
 
@@ -161,9 +179,31 @@ export default function Analytics({ inventory, sales }) {
                     </div>
                 </div>
 
+                {/* MANUAL SALES BREAKDOWN */}
+                {stats.manualRevenue > 0 && (
+                    <div className="card">
+                        <h3>Top Manual Items</h3>
+                        <div style={{ width: '100%', height: 300, marginTop: 20 }}>
+                            <ResponsiveContainer>
+                                <BarChart data={stats.topManualByRev} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#444" horizontal={false} />
+                                    <XAxis type="number" stroke="#888" />
+                                    <YAxis type="category" dataKey="name" width={100} stroke="#888" />
+                                    <Tooltip
+                                        contentStyle={{ background: '#333', border: 'none' }}
+                                        cursor={{ fill: 'transparent' }}
+                                        formatter={(value) => formatMoney(value)}
+                                    />
+                                    <Bar dataKey="value" fill="#fbbf24" radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
+
                 {/* STOCK VALUE DISTRIBUTION */}
                 <div className="card">
-                    <h3>Inventory Value (High Value Stock)</h3>
+                    <h3>High Value Inventory</h3>
                     <div style={{ width: '100%', height: 300, marginTop: 20 }}>
                         <ResponsiveContainer>
                             <BarChart data={stats.stockValueDistribution}>
@@ -180,7 +220,7 @@ export default function Analytics({ inventory, sales }) {
                     </div>
                 </div>
 
-                {/* TOP 5 QTY TABLE (Simple list is good for detailed view) */}
+                {/* TOP 5 QTY TABLE */}
                 <div className="card">
                     <h3>Most Sold Items (Qty)</h3>
                     <table className="compact" style={{ marginTop: 20 }}>
