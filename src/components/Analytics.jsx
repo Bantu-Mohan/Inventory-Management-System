@@ -99,12 +99,18 @@ export default function Analytics({ inventory, sales }) {
             if (!s.inventory_id) {
                 const amount = Number(s.total_price) || 0
                 manualRevenue += amount
-                if (!manualPerformance[s.item_name]) manualPerformance[s.item_name] = 0
-                manualPerformance[s.item_name] += amount
+
+                const rawName = (s.item_name || 'Unknown').trim()
+                const key = rawName.toLowerCase()
+
+                if (!manualPerformance[key]) {
+                    const titleCase = rawName.charAt(0).toUpperCase() + rawName.slice(1)
+                    manualPerformance[key] = { name: titleCase, value: 0 }
+                }
+                manualPerformance[key].value += amount
             }
         })
-        const topManualByRev = Object.keys(manualPerformance)
-            .map(k => ({ name: k, value: manualPerformance[k] }))
+        const topManualByRev = Object.values(manualPerformance)
             .sort((a, b) => b.value - a.value)
             .slice(0, 10)
 

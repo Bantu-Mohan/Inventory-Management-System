@@ -47,9 +47,16 @@ export default function SalesHistory({ sales, onRefresh, busy }) {
         // Manual
         manualTotal += p
         manualCount += 1
-        // Normalize name: lowercase and trim
-        const key = (s.item_name || 'Unknown').trim()
-        if (!manualBreakdown[key]) manualBreakdown[key] = { name: s.item_name, qty: 0, revenue: 0 }
+
+        // Normalize name: lowercase and trim key, but keep original name if better
+        const rawName = (s.item_name || 'Unknown').trim()
+        const key = rawName.toLowerCase()
+
+        if (!manualBreakdown[key]) {
+          // Init with Title Case preference
+          const titleCase = rawName.charAt(0).toUpperCase() + rawName.slice(1)
+          manualBreakdown[key] = { name: titleCase, qty: 0, revenue: 0 }
+        }
         manualBreakdown[key].qty += qty
         manualBreakdown[key].revenue += p
       } else {
