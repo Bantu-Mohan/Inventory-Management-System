@@ -186,6 +186,14 @@ export default function SellItem({ inventory, onChanged, lowStockThreshold }) {
 
     // Clean number
     let number = rawNumber ? rawNumber.replace(/\D/g, '') : ''
+
+    // VALIDATION: If user typed something but it's too short, STOP.
+    // Don't fall back to System Share, because they clearly TRIED to do Direct.
+    if (rawNumber && number.length < 10) {
+      alert("Please enter a valid 10-digit mobile number to send via WhatsApp.")
+      return
+    }
+
     if (number.length === 10) number = '91' + number
 
     // 2. DIRECT FLOW: If Number Provided -> Upload & Open WhatsApp
